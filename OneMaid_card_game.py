@@ -29,9 +29,6 @@ class Deck():
     def set_hands(self,new_hands):
         self.hands = new_hands
         
-    def get_num_players(self):
-        return len(self.hands)
-        
     def get_cards(self):
         return self.all_cards
         
