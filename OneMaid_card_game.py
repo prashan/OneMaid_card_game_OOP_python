@@ -13,21 +13,23 @@ from itertools import product
 import random
 import collections
 
+class Card():
+    
+    def __init__(self,suite,number):
+        self.suite = suite
+        self.number = number
+        
+    def __str__(self):
+        return self.suite + str(self.number)
+
 class Deck():
     
     suite_names = ['H','D','S','C']
     card_numbers = [1,2,3,4,5,6,7,8,9,10,11,12,13] #ace = 1, Jack = 11, Queen = 12, King = 13
         
     def __init__(self):
-        self.hands=[]
         self.all_cards=[]
         [self.all_cards.append(Card(suite,num)) for suite,num in product(self.suite_names,self.card_numbers)]    
-        
-    def get_hands(self):
-        return self.hands
-        
-    def set_hands(self,new_hands):
-        self.hands = new_hands
         
     def get_cards(self):
         return self.all_cards
@@ -47,23 +49,25 @@ class Deck():
     def shuffle(self):
         random.shuffle(self.all_cards)
         
-    def print_all_hands(self):
-        for hand in self.hands:
-            print hand.__str__()
-
-    def deal_hands(self,player_names):
+    def deal_hands(self,player_names,num_cards):
         print 'dealing hands'
+        hands=[]
         dealt_cards=collections.defaultdict(list)
-        for i in range(len(self.all_cards)):
-            dealt_cards[i%len(player_names)].append(self.all_cards[i])
+        for i in range(num_cards):
+            if len(self.all_cards)!=0:
+                dealt_cards[i%len(player_names)].append(self.all_cards.pop())
         for i,name in enumerate(player_names):
-            self.hands.append(Hand(name,dealt_cards[i]))
+            hands.append(Hand(name,dealt_cards[i]))
+        return hands
             
     def __str__(self):
         return ','.join([card.__str__() for card in self.all_cards])
         
         
 class Hand():
+    
+    matching_cards={'H':'D','D':'H','S':'C','C':'S'}
+    
     def __init__(self,name,cards):
         self.name=name
         self.cards=cards
@@ -81,28 +85,52 @@ class Hand():
         return self.name+': ['+','.join([card.__str__() for card in self.cards])+']'
         
         
-class Card():
-    
-    def __init__(self,suite,number):
-        self.suite = suite
-        self.number = number
+    def remove(self,card):
+        index_to_remove=[i for c in self.cards if str(c)==str(card)]
+        del self.cards[index_to_remove]
         
-    def __str__(self):
-        return self.suite + str(self.number)
+        
+    
+    def pair_and_remove(self):
+        cards_copy=list(self.get_cards())
+        for i in range(len(cards_copy)):
+            for j in range(i+1,len(cards_copy)):
+                if (cards_copy[i].number==cards_copy[j].number and self.matching_cards[cards_copy[i].suite]==cards_copy[j].suite):
+                    self.cards.remove(cards_copy[i])
+                    self.cards.remove(cards_copy[j])
+                    
+        print self.get_name(),':before reducing',len(self.get_cards()),'after reducing',len(self.get_cards())
+        
+        if self.get_size()==0:
+            print self.get_name()+' finished cards'
+        return self.get_size()
+                
         
 class CardGame():
     def __init__(self,players):
+        self.hands=[]
         self.players=players
+        self.deck=Deck()
+        self.deck.shuffle()
+        
+    def get_hands(self):
+        return self.hands
+        
+    def set_hands(self,new_hands):
+        self.hands = new_hands
+        
+    def print_all_hands(self):
+        for hand in self.hands:
+            print hand.__str__()
         
 class OneMaid(CardGame):
-    matching_cards={'H':'D','D':'H','S':'C','C':'S'}
+   
     def __init__(self,players):
         '''Creates a deck. Shuffles it. Deals the cards to players'''
         CardGame.__init__(self,players)
-        self.deck=Deck()
         self.remove_S_queen()
-        self.deck.shuffle()
-        self.deck.deal_hands(players)
+        dealt_hands = self.deck.deal_hands(players,999)
+        self.set_hands(dealt_hands)
         
     
     def remove_S_queen(self):
@@ -111,45 +139,19 @@ class OneMaid(CardGame):
         self.deck.set_cards([card for card in all_cards if str(card)!='S12'])
         
        
-
-    def pair_and_remove(self):
-        print 'pairing and removing'
-        reduced_hands = [] 
-        for hand in self.deck.get_hands():
-            red_hand = self.reduce_hand(hand)
-            print hand.get_name(),':before reducing',len(hand.get_cards()),'new after reducing',len(red_hand.get_cards())
-            if red_hand.get_size()!=0:
-                reduced_hands.append(red_hand)
-            else:
-                print red_hand.get_name()+' finished cards'
-                self.players.remove(red_hand.get_name())
-        self.deck.set_hands(reduced_hands)    
-    
-    def reduce_hand(self,hand):
-        cards_copy=hand.get_cards()
-        items_to_remove=[]
-        for i in range(len(hand.get_cards())):
-            for j in range(i+1,len(hand.get_cards())):
-                if (cards_copy[i].number==cards_copy[j].number and self.matching_cards[cards_copy[i].suite]==cards_copy[j].suite):
-                    items_to_remove.append(cards_copy[i])
-                    items_to_remove.append(cards_copy[j])
-                    #when cards are removed from the hand remove from the deck
-                    self.deck.remove_card(cards_copy[i])
-                    self.deck.remove_card(cards_copy[j])
-                    
-        reduced_list = [item  for item in cards_copy if item not in items_to_remove]
-        new_reduced_hand=Hand(hand.name,reduced_list)
-        return new_reduced_hand
-                    
-                
-    def print_game_deck(self):
-        print 'printing game deck'
-        self.deck.print_all_hands()
-        
+    def play(self):
+        hand_copy=list(self.get_hands())
+        for hand in hand_copy:
+            if hand.pair_and_remove()==0:
+                self.get_hands().remove(hand)
+                self.players.remove(hand.get_name())
+   
+    def get_players(self):
+        return self.players
     
     def get_total_cards(self,deck):
         total_length=0
-        for hand in self.deck.get_hands():
+        for hand in self.get_hands():
             total_length+=len(hand.get_cards())
        
         return total_length 
@@ -157,8 +159,8 @@ class OneMaid(CardGame):
     
     def game_end(self):
         if self.get_total_cards(self.deck)==1:
-            print 'The loser is '+self.deck.get_hands()[0].get_name()
-            print 'The last hand is '+','.join([str(card) for hand in self.deck.get_hands() for card in hand.get_cards() ])
+            print 'The loser is '+self.get_hands()[0].get_name()
+            print 'The last hand is '+','.join([str(card) for hand in self.get_hands() for card in hand.get_cards() ])
             return True
         else:
             return False  
@@ -171,30 +173,32 @@ class OneMaid(CardGame):
         else:
             neighbor=0
             
-        if len(self.deck.get_hands()[neighbor].get_cards())==0:
+        if len(self.get_hands()[neighbor].get_cards())==0:
             raise "Card length exception"
-        selected_card=random.choice(self.deck.get_hands()[neighbor].get_cards())
-        print self.deck.get_hands()[turn].get_name(),' selected ',str(selected_card),' from ',self.deck.get_hands()[neighbor].get_name()
             
-        self.deck.get_hands()[neighbor].get_cards().remove(selected_card)
-        self.deck.get_hands()[turn].get_cards().append(selected_card)
+        random.shuffle(self.get_hands()[neighbor].get_cards())
+        selected_card=random.choice(self.get_hands()[neighbor].get_cards())
+        
+        print self.get_hands()[turn].get_name(),' selected ',str(selected_card),' from ',self.get_hands()[neighbor].get_name()
+        self.get_hands()[neighbor].get_cards().remove(selected_card)
+        self.get_hands()[turn].get_cards().append(selected_card)
             
 
 if __name__=="__main__":
     players=['Prashan','Annie','Bernie','Clair']  #0,1,2,3
     current_game=OneMaid(players)
-    current_game.print_game_deck()
-    current_game.pair_and_remove()
-    current_game.print_game_deck()
+    current_game.print_all_hands()
+    current_game.play()
+    current_game.print_all_hands()
     
     i=0
     
     while (current_game.game_end()==False):
         print '-----------------------------------'
         print 'turn ',i
-        current_game.select_card(i%len(players))
+        current_game.select_card(i%len(current_game.get_players()))
         i+=1
-        current_game.pair_and_remove()
+        current_game.play()
     
     
     
