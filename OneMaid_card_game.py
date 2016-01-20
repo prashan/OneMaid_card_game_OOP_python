@@ -5,6 +5,10 @@ Created on Mon Jan 18 14:11:44 2016
 @author: Prashan
 """
 
+## This is the text editor interface. 
+## Anything you type or change here will be seen by the other person in real time.
+
+
 from itertools import product
 import random
 import collections
@@ -25,12 +29,23 @@ class Deck():
     def set_hands(self,new_hands):
         self.hands = new_hands
         
+    def get_num_players(self):
+        return len(self.hands)
+        
     def get_cards(self):
         return self.all_cards
         
     def set_cards(self,all_cards):
         self.all_cards = all_cards
         
+    def remove_card(self,card):
+        if card in self.all_cards:
+            self.all_cards.remove(card)
+        else:
+            raise 'card not in deck'
+    
+    def deck_size(self):
+        return len(self.all_cards)
         
     def shuffle(self):
         random.shuffle(self.all_cards)
@@ -40,6 +55,7 @@ class Deck():
             print hand.__str__()
 
     def deal_hands(self,player_names):
+        print 'dealing hands'
         dealt_cards=collections.defaultdict(list)
         for i in range(len(self.all_cards)):
             dealt_cards[i%len(player_names)].append(self.all_cards[i])
@@ -61,6 +77,9 @@ class Hand():
     def get_name(self):
         return self.name
         
+    def get_size(self):
+        return len(self.cards)
+        
     def __str__(self):
         return self.name+': ['+','.join([card.__str__() for card in self.cards])+']'
         
@@ -74,8 +93,6 @@ class Card():
     def __str__(self):
         return self.suite + str(self.number)
         
-        
-        
 class CardGame():
     def __init__(self,players):
         self.players=players
@@ -86,15 +103,17 @@ class OneMaid(CardGame):
         '''Creates a deck. Shuffles it. Deals the cards to players'''
         CardGame.__init__(self,players)
         self.deck=Deck()
-        #remove 'S12' based on OneMaid rukes
-        all_cards = self.deck.get_cards()
-        self.deck.set_cards([card for card in all_cards if str(card)!='S12'])
-        #shuffle the deck
+        self.remove_S_queen()
         self.deck.shuffle()
-        print 'dealing hands'
         self.deck.deal_hands(players)
         
+    
+    def remove_S_queen(self):
+        '''Remove spades queen'''
+        all_cards = self.deck.get_cards()
+        self.deck.set_cards([card for card in all_cards if str(card)!='S12'])
         
+       
 
     def pair_and_remove(self):
         print 'pairing and removing'
@@ -102,7 +121,11 @@ class OneMaid(CardGame):
         for hand in self.deck.get_hands():
             red_hand = self.reduce_hand(hand)
             print hand.get_name(),':before reducing',len(hand.get_cards()),'new after reducing',len(red_hand.get_cards())
-            reduced_hands.append(red_hand)
+            if red_hand.get_size()!=0:
+                reduced_hands.append(red_hand)
+            else:
+                print red_hand.get_name()+' finished cards'
+                self.players.remove(red_hand.get_name())
         self.deck.set_hands(reduced_hands)    
     
     def reduce_hand(self,hand):
@@ -113,10 +136,12 @@ class OneMaid(CardGame):
                 if (cards_copy[i].number==cards_copy[j].number and self.matching_cards[cards_copy[i].suite]==cards_copy[j].suite):
                     items_to_remove.append(cards_copy[i])
                     items_to_remove.append(cards_copy[j])
+                    #when cards are removed from the hand remove from the deck
+                    self.deck.remove_card(cards_copy[i])
+                    self.deck.remove_card(cards_copy[j])
                     
         reduced_list = [item  for item in cards_copy if item not in items_to_remove]
         new_reduced_hand=Hand(hand.name,reduced_list)
-        
         return new_reduced_hand
                     
                 
@@ -135,6 +160,8 @@ class OneMaid(CardGame):
     
     def game_end(self):
         if self.get_total_cards(self.deck)==1:
+            print 'The loser is '+self.deck.get_hands()[0].get_name()
+            print 'The last hand is '+','.join([str(card) for hand in self.deck.get_hands() for card in hand.get_cards() ])
             return True
         else:
             return False  
@@ -146,6 +173,9 @@ class OneMaid(CardGame):
             neighbor=turn+1
         else:
             neighbor=0
+            
+        if len(self.deck.get_hands()[neighbor].get_cards())==0:
+            raise "Card length exception"
         selected_card=random.choice(self.deck.get_hands()[neighbor].get_cards())
         print self.deck.get_hands()[turn].get_name(),' selected ',str(selected_card),' from ',self.deck.get_hands()[neighbor].get_name()
             
@@ -168,3 +198,7 @@ if __name__=="__main__":
         current_game.select_card(i%len(players))
         i+=1
         current_game.pair_and_remove()
+    
+    
+    
+    
